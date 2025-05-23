@@ -7,16 +7,21 @@
 </head>
 <body>
     <div id="join-screen">
-        <h2>Join the Session</h2>
+        <h2>Join Video Call</h2>
         <input type="text" id="username" placeholder="Enter your name">
         <button id="join-button">Join</button>
     </div>
-    <div id="control-panel" style="display: none;">
-        <button id="mute-button">Mute</button>
-        <button id="video-button">Stop Video</button>
-    </div>
-    <div id="participant-view" style="display: none;">
-        <!-- Video elements will be dynamically added here -->
+
+    <!-- This is the new wrapper for the main app view -->
+    <div id="app-view" style="display: none;">
+        <div id="participant-view">
+            <!-- Video elements will be dynamically added here by JavaScript -->
+        </div>
+        <div id="control-panel">
+            <button id="mute-button">Mute</button>
+            <button id="video-button">Stop Video</button>
+            <!-- Add other controls like leave button here -->
+        </div>
     </div>
     <script src="static/js/main.js"></script>
 </body>

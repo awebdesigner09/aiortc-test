@@ -2,42 +2,86 @@ document.addEventListener('DOMContentLoaded', () => {
     const joinButton = document.getElementById('join-button');
     const muteButton = document.getElementById('mute-button');
     const videoButton = document.getElementById('video-button');
-    let localStream = null;
-    const peerConnections = new Map(); // Store all peer connections
-    const participantView = document.getElementById('participant-view');
-    let localUsername = '';
+    const joinScreen = document.getElementById('join-screen');
+    // const controlPanel = document.getElementById('control-panel'); // No longer directly toggled for visibility here
+    // const participantView = document.getElementById('participant-view'); // No longer directly toggled for visibility here
+    const appView = document.getElementById('app-view'); // Get the new app-view container
+    const participantView = document.getElementById('participant-view'); // Still needed for adding videos
+    // controlPanel might still be needed if you interact with it beyond mute/video
 
+    const peerConnections = new Map(); // Store all peer connections
+    let localStream = null;
+    let localUsername = '';
     let checkNewPeersInterval;
+
+    muteButton.addEventListener('click', () => {
+        console.log('Mute button clicked (listener attached on DOMContentLoaded)');
+        if (localStream) {
+            const audioTracks = localStream.getAudioTracks();
+            if (audioTracks.length > 0) {
+                const audioTrack = audioTracks[0];
+                audioTrack.enabled = !audioTrack.enabled;
+                muteButton.textContent = audioTrack.enabled ? 'Mute' : 'Unmute';
+                console.log(`Audio track enabled: ${audioTrack.enabled}`);
+            } else {
+                console.warn("No audio track found in localStream to toggle.");
+            }
+        } else {
+            console.warn("localStream is null, cannot toggle mute. Button clicked but stream not ready.");
+        }
+    });
+
+    videoButton.addEventListener('click', () => {
+        console.log('Video button clicked (listener attached on DOMContentLoaded)');
+        if (localStream) {
+            const videoTracks = localStream.getVideoTracks();
+            if (videoTracks.length > 0) {
+                const videoTrack = videoTracks[0];
+                videoTrack.enabled = !videoTrack.enabled;
+                videoButton.textContent = videoTrack.enabled ? 'Stop Video' : 'Start Video';
+                console.log(`Video track enabled: ${videoTrack.enabled}`);
+            } else {
+                console.warn("No video track found in localStream to toggle.");
+            }
+        } else {
+            console.warn("localStream is null, cannot toggle video. Button clicked but stream not ready.");
+        }
+    });
 
     joinButton.addEventListener('click', async () => {
         const username = document.getElementById('username').value.trim();
         if (username) {
             try {
+                // Existing logic to show control-panel and participant-view
+                // For example, if you had:
+                // document.getElementById('join-screen').style.display = 'none';
+                // document.getElementById('control-panel').style.display = 'block';
+                // participantView.style.display = 'grid';
+                // Hide the join screen
+                if (joinScreen) {
+                    joinScreen.style.display = 'none';
+                }
+                // Show the main application view
+                if (appView) {
+                    appView.style.display = 'flex'; // Use 'flex' as per your #app-view CSS
+                }
+
                 await joinSession(username);
-                document.getElementById('join-screen').style.display = 'none';
-                document.getElementById('control-panel').style.display = 'block';
-                participantView.style.display = 'grid';  // Changed to grid
             } catch (error) {
                 console.error('Error joining session:', error);
+                // Optionally, re-show join-screen or show an error message
+                // document.getElementById('join-screen').style.display = 'block'; // Or your initial display type
+                // document.getElementById('control-panel').style.display = 'none';
+                // participantView.style.display = 'none';
+                if (joinScreen) {
+                    joinScreen.style.display = 'block'; // Or your initial display type for join-screen
+                }
+                if (appView) {
+                    appView.style.display = 'none';
+                }
             }
         } else {
             alert('Please enter your name');
-        }
-    });
-
-    muteButton.addEventListener('click', () => {
-        if (localStream) {
-            const audioTrack = localStream.getAudioTracks()[0];
-            audioTrack.enabled = !audioTrack.enabled;
-            muteButton.textContent = audioTrack.enabled ? 'Mute' : 'Unmute';
-        }
-    });
-
-    videoButton.addEventListener('click', () => {
-        if (localStream) {
-            const videoTrack = localStream.getVideoTracks()[0];
-            videoTrack.enabled = !videoTrack.enabled;
-            videoButton.textContent = videoTrack.enabled ? 'Stop Video' : 'Start Video';
         }
     });
 
@@ -102,11 +146,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 participantView.appendChild(videoContainer);
                 console.log(`Added video element for ${targetUsername}`);
+
+                
             }
             
             // Add the track to the stream
-            stream.addTrack(event.track);
-            console.log(`Added ${event.track.kind} track to stream for ${targetUsername}`);
+            // stream.addTrack(event.track);
+            // console.log(`Added ${event.track.kind} track to stream for ${targetUsername}`);
 
             // Log all current video elements
             const videos = participantView.querySelectorAll('video');
@@ -158,8 +204,16 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`Removing participant: ${username}`);
         const video = document.querySelector(`video[data-peer="${username}"]`);
         if (video) {
-            video.srcObject = null;
-            video.remove();
+            const parentContainer = video.parentElement; // Assuming video is wrapped in a container
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            if (parentContainer && parentContainer.parentElement === participantView) {
+                parentContainer.remove();
+            } else if (video.parentElement === participantView) { // Fallback if not in a container
+                video.remove();
+            }
         }
         if (peerConnections.has(username)) {
             const pc = peerConnections.get(username);
@@ -168,8 +222,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // If this was the last peer, stop checking for new ones
-        if (peerConnections.size === 0) {
+        // If this was the last *remote* peer (server connection might still exist), stop checking for new ones
+        const remotePeersCount = Array.from(peerConnections.keys()).filter(key => key !== 'server').length;
+        if (remotePeersCount === 0 && checkNewPeersInterval) {
             clearInterval(checkNewPeersInterval);
+            checkNewPeersInterval = null; // Clear the interval ID
+            console.log("Stopped checking for new peers as no remote peers are left.");
         }
     }
 
@@ -184,6 +242,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 video: true 
             });
             console.log('Got local media stream:', localStream.getTracks());
+
+            // Event listeners are now attached on DOMContentLoaded,
+            // so we remove the logging and attachment from here.
+            // The console.log statements for muteButton/videoButton references and
+            // "Event listener ... should have been added" can be removed from joinSession.
+
 
             // Add local video
             const localVideo = document.createElement('video');
@@ -206,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Wait a moment for tracks to be processed
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Create and send offer
             const offer = await pc.createOffer({
@@ -246,12 +310,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Start checking for new peers periodically
-            checkNewPeersInterval = setInterval(checkForNewPeers, 5000);
+            if (!checkNewPeersInterval) { // Start only if not already started
+                checkNewPeersInterval = setInterval(checkForNewPeers, 5000);
+            }
         } catch (error) {
             console.error('Error joining session:', error);
             throw error;
         }
-    }    async function connectToPeer(targetUsername) {
+    }    
+    
+    async function connectToPeer(targetUsername) {
         try {
             console.log(`Connecting to peer ${targetUsername}`);
             if (peerConnections.has(targetUsername)) {
@@ -270,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Wait a moment for tracks to be processed
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Create and send offer
             const offer = await pc.createOffer();
@@ -303,6 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log(`Successfully connected to ${targetUsername}`);
         } catch (error) {
             console.error(`Error connecting to peer ${targetUsername}:`, error);
+            // Ensure cleanup if connection fails during setup
             if (peerConnections.has(targetUsername)) {
                 const pc = peerConnections.get(targetUsername);
                 pc.close();
@@ -337,4 +406,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
-
