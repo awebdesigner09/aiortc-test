@@ -3,13 +3,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const muteButton = document.getElementById('mute-button');
     const videoButton = document.getElementById('video-button');
     const joinScreen = document.getElementById('join-screen');
-    // const controlPanel = document.getElementById('control-panel'); // No longer directly toggled for visibility here
-    // const participantView = document.getElementById('participant-view'); // No longer directly toggled for visibility here
     const appView = document.getElementById('app-view'); // Get the new app-view container
     const participantView = document.getElementById('participant-view'); // Still needed for adding videos
-    // controlPanel might still be needed if you interact with it beyond mute/video
-
     const peerConnections = new Map(); // Store all peer connections
+
     let localStream = null;
     let localUsername = '';
     let checkNewPeersInterval;
@@ -86,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     async function createPeerConnection(targetUsername) {
+
         console.log(`Creating peer connection for ${targetUsername}`);
         const pc = new RTCPeerConnection({
             iceServers: [
@@ -96,7 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add transceivers to ensure we can receive media
         pc.addTransceiver('video', {direction: 'sendrecv'});
         pc.addTransceiver('audio', {direction: 'sendrecv'});
-          pc.ontrack = (event) => {            console.log(`Received track from ${targetUsername}:`, event.track.kind);
+          
+        pc.ontrack = (event) => {            
+            console.log(`Received track from ${targetUsername}:`, event.track.kind);
             
             // Always create a new MediaStream for the track
             const stream = new MediaStream([event.track]);
@@ -108,7 +108,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const existingStream = existingVideo.srcObject;
                 existingStream.addTrack(event.track);
                 console.log(`Added ${event.track.kind} track to existing stream for ${targetUsername}`);
-            } else {
+            } 
+            else {
                 console.log(`Creating new video element for ${targetUsername}`);
                 const videoContainer = document.createElement('div');
                 videoContainer.style.position = 'relative';
@@ -124,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Add play handler to debug video playback
                 video.onplay = () => console.log(`Video started playing for ${targetUsername}`);
+
                 video.onloadedmetadata = () => {
                     console.log(`Video metadata loaded for ${targetUsername}`);
                     video.play().catch(e => console.error(`Error playing video for ${targetUsername}:`, e));
@@ -146,7 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 participantView.appendChild(videoContainer);
                 console.log(`Added video element for ${targetUsername}`);
-
                 
             }
             
@@ -189,7 +190,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error('Error sending ICE candidate:', error);
                 }
             }
-        };        pc.onconnectionstatechange = () => {
+        };        
+        
+        pc.onconnectionstatechange = () => {
             console.log(`Connection state for ${targetUsername}: ${pc.connectionState}`);
             if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
                 console.log(`Connection to ${targetUsername} ${pc.connectionState}`);
@@ -257,7 +260,9 @@ document.addEventListener('DOMContentLoaded', () => {
             localVideo.classList.add('local-video');
             localVideo.setAttribute('data-peer', 'local');
             participantView.appendChild(localVideo);
-            console.log('Added local video element');            // Create server connection
+            console.log('Added local video element');            
+            
+            // Create server connection
             const pc = await createPeerConnection('server');
             peerConnections.set('server', pc);
 
@@ -328,7 +333,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const pc = await createPeerConnection(targetUsername);
-            peerConnections.set(targetUsername, pc);            // Add local tracks to the connection
+            peerConnections.set(targetUsername, pc);            
+            
+            // Add local tracks to the connection
             if (localStream) {
                 console.log(`Adding ${localStream.getTracks().length} tracks to connection with ${targetUsername}`);
                 localStream.getTracks().forEach(track => {
@@ -369,7 +376,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }));
 
             console.log(`Successfully connected to ${targetUsername}`);
-        } catch (error) {
+        } 
+        catch (error) {
             console.error(`Error connecting to peer ${targetUsername}:`, error);
             // Ensure cleanup if connection fails during setup
             if (peerConnections.has(targetUsername)) {
@@ -401,7 +409,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     await connectToPeer(peer);
                 }
             }
-        } catch (error) {
+        } 
+        catch (error) {
             console.error('Error checking for new peers:', error);
         }
     }
